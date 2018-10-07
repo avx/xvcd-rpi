@@ -13,6 +13,7 @@
 
 static int jtag_state;
 static int verbose;
+const char xvcInfo[] = "xvcServer_v1.0:2048\n";
 
 //
 // JTAG state machine.
@@ -89,13 +90,44 @@ int handle_data(int fd)
 	{
 		char cmd[16];
 		unsigned char buffer[2048], result[1024];
+		memset(cmd, 0, 16);
 		
-		if (sread(fd, cmd, 6) != 1)
+		if (sread(fd, cmd, 2) != 1)
 			return 1;
 		
-		if (memcmp(cmd, "shift:", 6))
-		{
-			cmd[6] = 0;
+		if (memcmp(cmd, "ge", 2) == 0) {
+			if (sread(fd, cmd, 6) != 1)
+				return 1;
+			memcpy(result, xvcInfo, strlen(xvcInfo));
+			if (write(fd, result, strlen(xvcInfo)) != strlen(xvcInfo)) {
+				perror("write");
+				return 1;
+			}
+			if (verbose) {
+				printf("Received command: 'getinfo'\n");
+				printf("\t Replied with %s\n", xvcInfo);
+			}
+			break;
+		} else if (memcmp(cmd, "se", 2) == 0) {
+			if (sread(fd, cmd, 9) != 1)
+				return 1;
+			memcpy(result, cmd + 5, 4);
+			if (write(fd, result, 4) != 4) {
+				perror("write");
+				return 1;
+			}
+			if (verbose) {
+				printf("Received command: 'settck'\n");
+				printf("\t Replied with '%.*s'\n\n", 4, cmd + 5);
+			}
+			break;
+		} else if (memcmp(cmd, "sh", 2) == 0) {
+			if (sread(fd, cmd, 4) != 1)
+				return 1;
+			if (verbose) {
+				printf("Received command: 'shift'\n");
+			}
+		} else {
 			fprintf(stderr, "invalid cmd '%s'\n", cmd);
 			return 1;
 		}
